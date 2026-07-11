@@ -65,8 +65,14 @@ const Touchpad = () => {
       mouseDx.value = 0;
       mouseDy.value = 0;
 
-      const dx = Math.trunc(mouseDxValue);
-      const dy = Math.trunc(mouseDyValue);
+      const dx =
+        Math.abs(mouseDxValue) > 0 && Math.abs(mouseDxValue) < 1
+          ? Math.round(mouseDxValue)
+          : Math.trunc(mouseDxValue);
+      const dy =
+        Math.abs(mouseDyValue) > 0 && Math.abs(mouseDyValue) < 1
+          ? Math.round(mouseDyValue)
+          : Math.trunc(mouseDyValue);
 
       const splittedCoord = splitMovement(dx, dy, 3);
       const touchpad_reports: TouchpadReport[] = [];

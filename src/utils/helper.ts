@@ -254,7 +254,7 @@ const getMaxChunk = (dx: number, dy: number) => {
   "worklet";
   const distance = Math.max(Math.abs(dx), Math.abs(dy));
 
-  if (distance <= 6) return Infinity;
+  if (distance <= 6) return 1;
   else if (distance <= 20) return 3;
   else return 6;
 };
