@@ -32,8 +32,7 @@ interface TouchPadBtnProps {
 }
 const TouchPadBtn = ({ onTouchStart, onTouchEnd }: TouchPadBtnProps) => {
   const theme = useTheme();
-  const pan = Gesture.Pan()
-    .minDistance(0)
+  const pan = Gesture.Manual()
     .onTouchesDown(() => runOnJS(onTouchStart)())
     .onTouchesUp(() => runOnJS(onTouchEnd)());
 
@@ -47,7 +46,6 @@ const TouchPadBtn = ({ onTouchStart, onTouchEnd }: TouchPadBtnProps) => {
 const Touchpad = () => {
   const theme = useTheme();
   const activeButton = useSharedValue<TouchpadButton>(TouchpadButton.NONE);
-  // const mouseActive = useSharedValue(false);
   const mouseDx = useSharedValue(0);
   const mouseDy = useSharedValue(0);
   const lastUpdate = useSharedValue(0);

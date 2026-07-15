@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "ble_touchpad",
+    "name": "BLE Touchpad",
     "slug": "ble_touchpad",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "bletouchpadapp",
     "userInterfaceStyle": "automatic",
@@ -47,12 +47,9 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "modes": [
-            "central"
-          ]
+          "modes": ["central"]
         }
-      ],
-      "@config-plugins/react-native-ble-plx"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

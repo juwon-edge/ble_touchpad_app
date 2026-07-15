@@ -19,11 +19,13 @@ class BLETouchpadManager {
   private readonly blemanager: BleManager;
   private connectedTouchpad: BLEDevice | null;
   private touchpadService: TouchpadService;
+  private readonly writeBuffer: string[];
 
   constructor(touchpadService: TouchpadService) {
     this.blemanager = new BleManager();
     this.connectedTouchpad = null;
     this.touchpadService = touchpadService;
+    this.writeBuffer = [];
   }
 
   async connectToDevice(device: Device) {
@@ -75,14 +77,19 @@ class BLETouchpadManager {
   private async writeToCharacteristics(
     characteristicsId: string,
     report: Uint8Array,
+    buffered?: boolean,
   ) {
     if (!this.connectedTouchpad) return;
     const encodedReport = fromByteArray(report);
-    await this.connectedTouchpad.writeCharacteristicWithoutResponseForService(
-      this.touchpadService.serviceId,
-      characteristicsId,
-      encodedReport,
-    );
+    if (!buffered) {
+      await this.connectedTouchpad.writeCharacteristicWithoutResponseForService(
+        this.touchpadService.serviceId,
+        characteristicsId,
+        encodedReport,
+      );
+      return;
+    }
+    this.writeBuffer.push(encodedReport);
   }
 
   async sendTouchpadReports(touchpadReports: TouchpadReport[]) {
@@ -114,14 +121,12 @@ class BLETouchpadManager {
     );
   }
 
-  async sendKeyboardReport(modifier: number, ...keycodes: number[]) {
+  async sendKeyboardReport(modifier: number, keycodes: number[]) {
     if (!this.connectedTouchpad) return;
     const report = new Uint8Array([modifier, ...keycodes]);
-    const encodedReport = fromByteArray(report);
-    await this.connectedTouchpad.writeCharacteristicWithoutResponseForService(
-      this.touchpadService.serviceId,
+    await this.writeToCharacteristics(
       this.touchpadService.characteristics.keyboardId,
-      encodedReport,
+      report,
     );
   }
 }

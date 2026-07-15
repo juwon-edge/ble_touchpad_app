@@ -17,6 +17,7 @@ export enum TouchpadButton {
 }
 
 export enum KeyboardModifiers {
+  NONE = 0,
   LEFT_CTRL = 0x01,
   LEFT_SHIFT = 0x02,
   LEFT_ALT = 0x04,
