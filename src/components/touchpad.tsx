@@ -28,13 +28,15 @@ function useTwoFingerGesture({
 }) {
   const prevDistance = useSharedValue(0);
   const prevCentroidY = useSharedValue(0);
+  const isFirst = useSharedValue(0);
+  
   const lock = useSharedValue(GESTURE_LOCK.NONE);
 
   const gesture = Gesture.Pan()
     .minPointers(2)
     .maxPointers(2)
     .onTouchesMove((e) => {
-      if (e.allTouches.length !== 2) return;
+      if (e.allTouches?.length !== 2) return;
       const [t1, t2] = e.allTouches;
 
       const distance = Math.hypot(t1.x - t2.x, t1.y - t2.y);
