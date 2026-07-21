@@ -2,10 +2,10 @@ import { Sizing, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { blemanager } from "@/utils/ble-touchpad-manager";
 import { splitMovement } from "@/utils/helper";
-import { TouchpadButton, TouchpadReport } from "@/utils/types";
+import { GESTURE_LOCK, TouchpadButton, TouchpadReport } from "@/utils/types";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useAnimatedReaction, useSharedValue } from "react-native-reanimated";
+import { useSharedValue } from "react-native-reanimated";
 import { runOnJS } from "react-native-worklets";
 
 /**
@@ -14,9 +14,10 @@ import { runOnJS } from "react-native-worklets";
  * TODO:Make keyboard input more reliable and less likely to fail
  */
 
-const GESTURE_LOCK = { NONE: 0, SCROLL: 1, PINCH: 2 };
 const DEAD_ZONE = 3; // px, ignore tiny jitter before locking
 const PINCH_RATIO = 0.6; // distance change vs centroid change to call it a pinch
+const FRAME_SAMPLING = 1;
+const SENSITIVITY = 1.8;
 
 function useTwoFingerGesture({
   onScroll,
@@ -52,7 +53,6 @@ function useTwoFingerGesture({
       prevDistance.value = distance;
       prevCentroidY.value = centroidY;
 
-      // not enough movement yet to classify — avoids jitter-triggered locks
       if (
         Math.abs(distanceDelta) < DEAD_ZONE &&
         Math.abs(centroidDelta) < DEAD_ZONE
@@ -60,7 +60,6 @@ function useTwoFingerGesture({
         return;
       }
 
-      // lock the gesture type on first significant movement, keep it until fingers lift
       if (lock.value === GESTURE_LOCK.NONE) {
         lock.value =
           Math.abs(distanceDelta) > Math.abs(centroidDelta) * PINCH_RATIO
@@ -76,7 +75,6 @@ function useTwoFingerGesture({
     })
     .onTouchesUp((e) => {
       if (e.allTouches.length < 2) {
-        // reset for next gesture
         prevDistance.value = 0;
         prevCentroidY.value = 0;
         lock.value = GESTURE_LOCK.NONE;
@@ -86,7 +84,6 @@ function useTwoFingerGesture({
   return gesture;
 }
 
-const SENSITIVITY = 1.8;
 
 const sendTap = (
   activeButton: TouchpadButton,
@@ -111,12 +108,12 @@ interface TouchPadBtnProps {
 }
 const TouchPadBtn = ({ onTouchStart, onTouchEnd }: TouchPadBtnProps) => {
   const theme = useTheme();
-  const pan = Gesture.Manual()
+  const touch = Gesture.Manual()
     .onTouchesDown(() => onTouchStart())
     .onTouchesUp(() => onTouchEnd());
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={touch}>
       <View style={[{ backgroundColor: theme.text }, styles.touchpad]} />
     </GestureDetector>
   );
@@ -127,14 +124,28 @@ const Touchpad = () => {
   const activeButton = useSharedValue<TouchpadButton>(TouchpadButton.NONE);
   const mouseDx = useSharedValue(0);
   const mouseDy = useSharedValue(0);
-  const lastUpdate = useSharedValue(0);
+  const updateCount = useSharedValue(0);
   const remDx = useSharedValue(0);
   const remDy = useSharedValue(0);
+  const scrollZoom = useTwoFingerGesture({
+    onScroll(delta) {
+    console.log("Scrolling");
+    console.log(delta)
+  },
+    onPinch(delta) {
+      console.log("Pinching");
+      console.log(delta)
+  },
+})
 
-  useAnimatedReaction(
-    () => lastUpdate.value,
-    (updateCount) => {
-      if (updateCount % 3 !== 0) return;
+  const cursorMove = Gesture.Pan()
+    .maxPointers(1)
+    .onChange((event) => {
+      mouseDx.value += event.changeX * SENSITIVITY;
+      mouseDy.value += event.changeY * SENSITIVITY;
+      updateCount.value++;
+
+      if (updateCount.value % FRAME_SAMPLING !== 0) return;
 
       const mouseDxValue = mouseDx.value + remDx.value;
       const mouseDyValue = mouseDy.value + remDy.value;
@@ -142,22 +153,22 @@ const Touchpad = () => {
       mouseDy.value = 0;
 
       const dx =
-        Math.abs(mouseDxValue) > 0 && Math.abs(mouseDxValue) < 1
+        Math.abs(mouseDxValue) > 0.2 && Math.abs(mouseDxValue) < 1
           ? Math.round(mouseDxValue)
           : Math.trunc(mouseDxValue);
       const dy =
-        Math.abs(mouseDyValue) > 0 && Math.abs(mouseDyValue) < 1
+        Math.abs(mouseDyValue) > 0.2 && Math.abs(mouseDyValue) < 1
           ? Math.round(mouseDyValue)
           : Math.trunc(mouseDyValue);
 
-      const splittedCoord = splitMovement(dx, dy, 3);
+      const splittedCoord = splitMovement(dx, dy, FRAME_SAMPLING);
       const touchpad_reports: TouchpadReport[] = [];
       for (const [coordDx, coordDy] of splittedCoord) {
         touchpad_reports.push({
           buttons: activeButton.value,
           dx: coordDx,
           dy: coordDy,
-          scrollX: 0,
+          scrollX: 0,   
           scrollY: 0,
         });
       }
@@ -166,24 +177,7 @@ const Touchpad = () => {
       remDy.value = mouseDyValue - dy;
 
       runOnJS(sendReport)(touchpad_reports);
-    },
-  );
-
-  const cursorMove = Gesture.Pan()
-    .maxPointers(1)
-    .onChange((event) => {
-      // eslint-disable-next-line react-hooks/immutability
-      mouseDx.value += event.changeX * SENSITIVITY;
-      // eslint-disable-next-line react-hooks/immutability
-      mouseDy.value += event.changeY * SENSITIVITY;
-      // eslint-disable-next-line react-hooks/immutability
-      lastUpdate.value++;
     });
-
-  const scroll = Gesture.Pan()
-    .minPointers(2)
-    .maxPointers(2)
-    .onStart((event) => {});
 
   const singleTap = Gesture.Tap().onStart(() => {
     runOnJS(sendTap)(activeButton.value, TouchpadButton.LEFT);
@@ -226,7 +220,7 @@ const Touchpad = () => {
     singleTap,
   );
 
-  const gestures = Gesture.Race(cursorMove, scroll, tap);
+  const gestures = Gesture.Race(cursorMove, scrollZoom, tap);
 
   return (
     <View style={styles.conatainer}>

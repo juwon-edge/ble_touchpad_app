@@ -21,6 +21,9 @@ export enum TouchpadButton {
   RIGHT = 2,
 }
 
+export enum GESTURE_LOCK{ NONE, SCROLL, PINCH};
+
+
 export enum KeyboardModifiers {
   NONE = 0,
   LEFT_CTRL = 0x01,

@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   },
   key: {
     flex: 1,
-    minHeight: 45,
+    minHeight: 40,
     borderRadius: Spacing.two,
     alignItems: "center",
     justifyContent: "center",
