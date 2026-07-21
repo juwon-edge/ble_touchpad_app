@@ -28,7 +28,7 @@ function useTwoFingerGesture({
 }) {
   const prevDistance = useSharedValue(0);
   const prevCentroidY = useSharedValue(0);
-  const isFirst = useSharedValue(0);
+  const isFirstFrame = useSharedValue(true);
   
   const lock = useSharedValue(GESTURE_LOCK.NONE);
 
@@ -42,10 +42,11 @@ function useTwoFingerGesture({
       const distance = Math.hypot(t1.x - t2.x, t1.y - t2.y);
       const centroidY = (t1.y + t2.y) / 2;
 
-      if (prevDistance.value === 0) {
+      if (isFirstFrame.value) {
         // first frame of this gesture, just seed values
         prevDistance.value = distance;
         prevCentroidY.value = centroidY;
+        isFirstFrame.value = false;
         return;
       }
 
@@ -80,6 +81,7 @@ function useTwoFingerGesture({
         prevDistance.value = 0;
         prevCentroidY.value = 0;
         lock.value = GESTURE_LOCK.NONE;
+        isFirstFrame.value = true
       }
     });
 
