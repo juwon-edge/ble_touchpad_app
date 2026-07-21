@@ -4,6 +4,7 @@ export const Colors = {
   light: {
     text: "#000000",
     accent: "#3B82F6",
+    lightAccent: "#508ff4",
     background: "#ffffff",
     backgroundElement: "#F0F0F3",
     backgroundSelected: "#E0E1E6",
@@ -11,6 +12,7 @@ export const Colors = {
   },
   dark: {
     text: "#ffffff",
+    lightAccent: "#5c93ed",
     accent: "#3B82F6",
     background: "#000000",
     backgroundElement: "#212225",

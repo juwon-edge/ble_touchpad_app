@@ -1,11 +1,12 @@
-import { Spacing } from "@/constants/theme";
+import { Sizing, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { blemanager } from "@/utils/ble_touchpad_manager";
+import { blemanager } from "@/utils/ble-touchpad-manager";
 import { charToHidMap } from "@/utils/helper";
 import { KeyboardModifiers } from "@/utils/types";
 import { useCallback, useRef, useState } from "react";
 import { KeyboardAvoidingView, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-worklets";
 
 type KeyDefinition = {
   label: string;
@@ -179,73 +180,98 @@ const Keyboard = () => {
   const onKeyPressDown = useCallback((key: KeyDefinition) => {
     if (key.isModifier) {
       activeModifiers.current |= key.value;
+    } else if (key.label === "Caps") {
+      let isCaplockActive = false;
+
+      setCapsLock((current) => {
+        isCaplockActive = !current;
+        return isCaplockActive;
+      });
+
+      if (isCaplockActive) activeKeys.current.add(key.value);
+      else activeKeys.current.delete(key.value);
+
+      blemanager.sendKeyboardReport(activeModifiers.current, [
+        ...activeKeys.current,
+      ]);
     } else {
-      if (activeKeys.current.size === 6) return; //TODO: find something to do when your set is full
+      if (activeKeys.current.size === 6) return;
       activeKeys.current.add(key.value);
       blemanager.sendKeyboardReport(activeModifiers.current, [
         ...activeKeys.current,
       ]);
     }
+
+    console.log(`${key.label} pressed down`);
   }, []);
 
   const onKeyPressUp = useCallback((key: KeyDefinition) => {
     if (key.isModifier) {
       activeModifiers.current &= ~key.value;
+    } else if (key.label === "Caps") {
     } else {
       activeKeys.current.delete(key.value);
       blemanager.sendKeyboardReport(activeModifiers.current, [
         ...activeKeys.current,
       ]);
     }
+
+    console.log(`${key.label} pressed up`);
   }, []);
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior="padding">
-      <View style={styles.keyboardShell}>
-        {/*eslint-disable-next-line react-hooks/refs*/}
-        {keyboardRows.map((row, rowIndex) => (
-          <View key={`row-${rowIndex}`} style={styles.keyRow}>
-            {row.map((key, keyIndex) => {
-              const isCapLockActive = key.label === "Caps" && capsLock;
+      {/*eslint-disable-next-line react-hooks/refs*/}
+      {keyboardRows.map((row, rowIndex) => (
+        <View key={`row-${rowIndex}`} style={styles.keyRow}>
+          {row.map((key, keyIndex) => {
+            const isCapLockActive = key.label === "Caps" && capsLock;
 
-              const gesture = Gesture.Manual()
-                .onTouchesDown(() => {
-                  if (key.label === "Caps") setCapsLock((current) => !current);
-                  onKeyPressDown(key);
-                })
-                .onTouchesUp(() => {
-                  onKeyPressUp(key);
-                });
+            const gesture = Gesture.Manual()
+              .onTouchesDown(() => {
+                runOnJS(onKeyPressDown)(key);
+              })
+              .onTouchesUp(() => {
+                runOnJS(onKeyPressUp)(key);
+              });
 
-              return (
-                <GestureDetector
-                  gesture={gesture}
-                  key={`${rowIndex}-${keyIndex}`}
+            return (
+              <GestureDetector
+                gesture={gesture}
+                key={`${rowIndex}-${keyIndex}`}
+              >
+                <View
+                  style={[
+                    {
+                      backgroundColor: theme.text,
+                      borderColor: theme.textSecondary,
+                    },
+                    styles.key,
+                    key.variant === "wide" && styles.wideKey,
+                    key.width ? { flex: key.width } : undefined,
+                    //pressed && styles.pressedKey,
+                    isCapLockActive && {
+                      backgroundColor: theme.accent,
+                      borderColor: theme.accent,
+                    },
+                  ]}
                 >
-                  <View
-                    style={[
-                      styles.key,
-                      key.variant === "special" && styles.specialKey,
-                      key.variant === "wide" && styles.wideKey,
-                      key.variant === "action" && styles.actionKey,
-                      key.width ? { flex: key.width } : undefined,
-                      //pressed && styles.pressedKey,
-                      isCapLockActive && {
-                        backgroundColor: theme.accent,
-                        borderColor: theme.accent,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.keyLabel, { color: theme.text }]}>
-                      {key.label}
+                  {key.shiftLabel && (
+                    <Text
+                      style={[styles.shiftLabel, { color: theme.background }]}
+                    >
+                      {key.shiftLabel}
                     </Text>
-                  </View>
-                </GestureDetector>
-              );
-            })}
-          </View>
-        ))}
-      </View>
+                  )}
+                  <Text style={[styles.keyLabel, { color: theme.background }]}>
+                    {key.label}
+                  </Text>
+                </View>
+              </GestureDetector>
+            );
+          })}
+        </View>
+      ))}
     </KeyboardAvoidingView>
   );
 };
@@ -255,22 +281,6 @@ export default Keyboard;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "space-between",
-    gap: Spacing.twoHalf,
-  },
-  output: {
-    minHeight: 120,
-    borderWidth: 1,
-    borderRadius: Spacing.twoHalf,
-    padding: Spacing.twoHalf,
-    fontSize: 16,
-  },
-  keyboardShell: {
-    borderRadius: Spacing.three,
-    padding: Spacing.two,
-    backgroundColor: "#1f2937",
-    borderWidth: 1,
-    borderColor: "#374151",
   },
   keyRow: {
     flexDirection: "row",
@@ -279,31 +289,26 @@ const styles = StyleSheet.create({
   },
   key: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 45,
     borderRadius: Spacing.two,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e5e7eb",
+    gap: Spacing.half,
     borderWidth: 1,
-    borderColor: "#9ca3af",
-  },
-  specialKey: {
-    backgroundColor: "#d1d5db",
-  },
-  actionKey: {
-    backgroundColor: "#f59e0b",
-    borderColor: "#d97706",
   },
   wideKey: {
-    backgroundColor: "#d1d5db",
     flex: 3.6,
   },
   pressedKey: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
   },
+  shiftLabel: {
+    opacity: 0.6,
+    fontSize: Sizing.sm,
+  },
   keyLabel: {
-    fontSize: 12,
+    fontSize: Sizing.md,
     fontWeight: "600",
   },
 });

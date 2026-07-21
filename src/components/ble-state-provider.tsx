@@ -1,4 +1,4 @@
-import { blemanager } from "@/utils/ble_touchpad_manager";
+import { blemanager } from "@/utils/ble-touchpad-manager";
 import { BLEState } from "@/utils/types";
 import React, { createContext, useEffect, useState } from "react";
 

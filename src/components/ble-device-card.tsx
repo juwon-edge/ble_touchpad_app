@@ -1,8 +1,10 @@
 import { Sizing, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { blemanager } from "@/utils/ble_touchpad_manager";
-import { BLEDevice } from "@/utils/types";
+import { blemanager } from "@/utils/ble-touchpad-manager";
+import { DEVICE_ID_STORAGE_KEY } from "@/utils/helper";
+import { BLEDevice, LastConnectedDeviceInfo } from "@/utils/types";
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { use, useState } from "react";
 import {
   ActivityIndicator,
@@ -59,13 +61,21 @@ const BLEDeviceCard = ({ device }: Props) => {
         onPress={async () => {
           try {
             setIsConnecting(true);
-            const connectedDevice = await blemanager.connectToDevice(device);
-            setConnectionState?.("connected");
-            connectedDevice.onDisconnected(() =>
-              setConnectionState?.("disconnected"),
-            );
+            blemanager.onConnectionStateChange = (connectionState) => {
+              setConnectionState?.(connectionState);
+              console.log(connectionState);
+            };
+            const connectedDevice = await blemanager.connectToDevice(device.id);
             console.log(await connectedDevice.services());
             console.log(`MTU payload size: ${connectedDevice.mtu}`);
+
+            await AsyncStorage.setItem(
+              DEVICE_ID_STORAGE_KEY,
+              JSON.stringify({
+                name: connectedDevice.name,
+                id: connectedDevice.id,
+              } as LastConnectedDeviceInfo),
+            );
           } catch (error) {
             console.error("Failed to connect to device:", error);
           } finally {
@@ -103,7 +113,7 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.four,
+    gap: Spacing.three,
     maxWidth: 320,
     width: "100%",
   },
@@ -125,6 +135,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.oneHalf,
     borderRadius: Spacing.two,
-    marginLeft: "auto",
+    marginLeft: Spacing.twoHalf,
   },
 });

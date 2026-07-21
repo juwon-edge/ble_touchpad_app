@@ -1,6 +1,6 @@
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, StyleSheet } from "react-native";
 
 interface InputModeToggleProps {
@@ -20,12 +20,12 @@ const InputModeToggle = ({ inputMode, onToggle }: InputModeToggleProps) => {
         {
           backgroundColor: theme.backgroundElement,
           borderColor: theme.textSecondary,
-          opacity: pressed ? 0.85 : 1,
+          opacity: pressed ? 0.65 : 1,
         },
       ]}
     >
-      <Ionicons
-        name={inputMode === "touchpad" ? "keypad-outline" : "move-outline"}
+      <MaterialCommunityIcons
+        name={inputMode === "touchpad" ? "keyboard" : "mouse"}
         size={20}
         color={theme.text}
       />

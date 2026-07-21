@@ -4,6 +4,11 @@ export { State as BLEState } from "react-native-ble-plx";
 export { BLEDevice };
 export type ConnectedDeviceType = BLEDevice | null;
 
+export interface LastConnectedDeviceInfo {
+  name: string;
+  id: string;
+}
+
 export type BLEConnectionState =
   | "connected"
   | "disconnected"

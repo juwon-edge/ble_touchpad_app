@@ -1,5 +1,7 @@
 import { PermissionsAndroid, Platform } from "react-native";
 
+export const DEVICE_ID_STORAGE_KEY = "last-connected-device-id";
+
 export const requestBLEPermissions = async () => {
   const new_android_permissions = [
     PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
@@ -27,6 +29,35 @@ export const requestBLEPermissions = async () => {
   return old_android_permission.every(
     (permission) => result[permission] === PermissionsAndroid.RESULTS.GRANTED,
   );
+};
+
+export const delay = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+export interface WithRetry<Type> {
+  func: () => Promise<Type>;
+  maxRetryCount?: number;
+}
+
+export const withRetry = async <Type>({
+  func,
+  maxRetryCount = 3,
+}: WithRetry<Type>): Promise<Type> => {
+  let retryCount = 0;
+  let retryTimeout = 1 * 1000;
+
+  while (true) {
+    try {
+      return await func();
+    } catch (error) {
+      retryCount++;
+      if (retryCount > maxRetryCount) {
+        throw error;
+      }
+    }
+    await delay(Math.min(retryTimeout, 10 * 1000));
+    retryTimeout *= 2;
+  }
 };
 
 export const charToHidMap = {

@@ -4,6 +4,7 @@ import useBLEScan from "@/hooks/use-ble-scan";
 import { BLEState } from "@/utils/types";
 import { use, useState } from "react";
 import { FlatList, Platform, StyleSheet, View } from "react-native";
+import { BleErrorCode } from "react-native-ble-plx";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AppSettingsLink from "./app-settings-links";
 import { BLEStateContext } from "./ble-state-provider";
@@ -13,7 +14,19 @@ import ThemedText from "./theme-text";
 const isAndroid = Platform.OS === "android";
 
 const getStateText = (bleState: BLEState) => {
-  if (bleState === BLEState.PoweredOff) {
+  console.log(bleState);
+  if (bleState === BLEState.Unauthorized) {
+    return (
+      <>
+        You didn&apos;t give permission to use bluetooth{" "}
+        <AppSettingsLink>Allow permission</AppSettingsLink>
+      </>
+    );
+  } else if (bleState === BLEState.Unsupported) {
+    return "Your device doesn't support BLE";
+  } else if (bleState === BLEState.PoweredOn)
+    return "Tap the button to search for nearby touchpads";
+  else if (bleState === BLEState.PoweredOff) {
     return (
       <>
         Your bluetooth is turned off{" "}
@@ -24,48 +37,67 @@ const getStateText = (bleState: BLEState) => {
         )}
       </>
     );
-  } else if (bleState === BLEState.Unauthorized) {
+  }
+  return null;
+};
+
+const getScanErrorText = (scanErrorCode: BleErrorCode | null) => {
+  if (scanErrorCode === BleErrorCode.LocationServicesDisabled) {
     return (
       <>
-        You didn&apos;t give permission to use bluetooth{" "}
-        <AppSettingsLink page="android.settings.APPLICATION_DETAILS_SETTINGS">
-          Allow permission
-        </AppSettingsLink>
+        Your location is disabled{" "}
+        {isAndroid && (
+          <AppSettingsLink page="android.settings.LOCATION_SOURCE_SETTINGS">
+            turn it on
+          </AppSettingsLink>
+        )}
       </>
     );
-  } else if (bleState === BLEState.Unsupported) {
-    return "Your device doesn't support BLE";
   }
-
-  return "Unable to start scanning";
+  return null;
 };
 
 const BLEScan = () => {
-  const { devices: scannedDevices, isScanning, scanForDevices } = useBLEScan();
+  const {
+    devices: scannedDevices,
+    isScanning,
+    scanForDevices,
+    stopDeviceScan,
+    scanErrorCode,
+  } = useBLEScan();
   const [isInitialScan, setIsInitialScan] = useState(true);
   const bleState = use(BLEStateContext);
 
-  let scanStatusText = "Tap the button to search for nearby touchpads";
-  if (isInitialScan) scanStatusText = scanStatusText;
-  else if (isScanning) scanStatusText = "Searching for nearby touchpads...";
-  else if (scannedDevices.length === 0) scanStatusText = "No touchpad found";
+  let scanStatusText = "";
+  if (!isInitialScan && isScanning)
+    scanStatusText = "Searching for nearby touchpads...";
+  else if (!isInitialScan && scannedDevices.length === 0)
+    scanStatusText = "No touchpad found";
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
         <ThemedText style={styles.header}>Connect to Touchpad</ThemedText>
-        <View style={[{ gap: Spacing.two }, styles.statusText]}>
-          {bleState === BLEState.PoweredOn ? (
-            <ThemedText>{scanStatusText}</ThemedText>
-          ) : (
-            <ThemedText style={{ color: "red" }}>
-              {getStateText(bleState)}
-            </ThemedText>
-          )}
+        <View style={styles.statusText}>
+          <ThemedText
+            style={
+              (bleState !== BLEState.PoweredOn || !!scanErrorCode) && {
+                color: "red",
+              }
+            }
+          >
+            {getScanErrorText(scanErrorCode) ||
+              scanStatusText ||
+              getStateText(bleState) ||
+              "Unable to start scanning"}
+          </ThemedText>
         </View>
 
         <BTSearchBtn
           disabled={bleState !== BLEState.PoweredOn}
+          onCancelSearch={() => {
+            stopDeviceScan();
+          }}
           onStartSearch={() => {
             scanForDevices();
             if (isInitialScan) setIsInitialScan(false);
@@ -78,6 +110,7 @@ const BLEScan = () => {
         keyExtractor={(device) => device.id}
         renderItem={({ item }) => <BLEDeviceCard device={item} />}
         contentContainerStyle={styles.listContainer}
+        style={{ flex: 1 }}
       />
     </SafeAreaView>
   );
@@ -86,23 +119,32 @@ const BLEScan = () => {
 export default BLEScan;
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   header: {
     fontSize: Sizing.xl,
     fontWeight: 700,
     paddingVertical: Spacing.two,
-    marginTop: Spacing.seven,
   },
   headerContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: Spacing.four,
+    gap: Spacing.three,
+    marginLeft: Spacing.two,
   },
   statusText: {
     fontSize: Sizing.md,
     opacity: 0.8,
+    gap: Spacing.two,
   },
   listContainer: {
     gap: Spacing.four,
-    paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: Spacing.twoHalf,
+    marginTop: Spacing.two,
+    alignItems: "center",
   },
 });
